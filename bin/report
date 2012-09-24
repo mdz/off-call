@@ -12,6 +12,16 @@ SERVICES  = ENV["SERVICES"].split(",") || abort("Must provide SERVICES=PXXXXXX,P
 SINCE     = ENV["SINCE"].to_time rescue "Last Week".to_time
 UNTIL     = ENV["UNTIL"].to_time rescue "Now".to_time
 
+# XXX this should just map to standard time zones and get the offsets from
+# zoneinfo
+tzoffset = {
+    "Eastern Time (US & Canada)" => -4, # "America/New_York"
+    "Pacific Time (US & Canada)" => -7, # "America/Los_Angeles"
+    "Atlantic Time (Canada)" => -3, # "America/Halifax"
+    "Madrid" => 2, # "Europe/Madrid"
+    "UTC" => 0, # "UTC"
+}   
+
 incidents = []
 SERVICES.each do |service_id|
   s = OffCall::PagerDuty::Service.new(service_id)
@@ -54,8 +64,15 @@ alerts.each do |alert|
   users[userid] ||= alert["user"]
   users[userid]["num_sms"] ||= 0
 
+  tz = users[userid]["time_zone"]
+  abort("Unknown time zone: "+ tz) unless tzoffset.include? tz
+
+  hour = (alert["started_at"].to_time.hour + tzoffset[tz]) % 24
+
   if alert["type"] == "SMS"
     users[userid]["num_sms"] += 1
+    sms_by_hour[hour] ||= 0
+    sms_by_hour[hour] += 1
   end
 end
 
@@ -113,6 +130,21 @@ Terminal::Table.new do |t|
 
   hours.each do |k,v|
     t << :separator if [3, 15].include? k # 8 PM and 8 AM PDT
+    t << [k,v]
+  end
+
+  puts t
+end
+
+puts
+puts "## SMS alerts by hour"
+puts
+
+Terminal::Table.new do |t|
+  t.headings = "Hour", "Count"
+
+  sms_by_hour.each do |k,v|
+    t << :separator if [8, 20].include? k # 8 PM and 8 AM local time
     t << [k,v]
   end
 
