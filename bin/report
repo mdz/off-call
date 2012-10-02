@@ -73,6 +73,7 @@ Terminal::Table.new do |t|
   t.rows     = subjects.sort { |a,b| b[1]<=>a[1] }
   t << :separator  
   t << ["TOTAL", subjects.inject(0) { |s,h| s += h[1] } ]
+  t << ["DISTINCT", subjects.inject(0) { |s,h| s += 1 } ]
   puts t
 end
 
