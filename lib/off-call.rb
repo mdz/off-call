@@ -56,7 +56,15 @@ module OffCall
 
     def self.alerts(params={})
       params.reverse_merge!(until: Time.now, since: Time.now-60*60*24)
-      JSON.parse(PagerDuty.api["v1/alerts"].get(params: params))["alerts"]
+      alerts = []
+      expected = 1
+      while alerts.length < expected do
+        params["offset"] = alerts.length
+        result = JSON.parse(PagerDuty.api["v1/alerts"].get(params: params))
+        alerts += result["alerts"]
+        expected = result["total"]
+      end
+      alerts
     end
 
     class Service
