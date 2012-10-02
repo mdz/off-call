@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+# coding: utf-8
+
 
 require "./lib/off-call"
 require "terminal-table"
@@ -49,7 +51,7 @@ end
 alerts = OffCall::PagerDuty.alerts(since: SINCE, until: UNTIL)
 users = {}
 sms_by_hour = Hash[(0..23).zip [0]*24]
-exclude_users = Set.new ['Edward Muller', 'Routing Monkey', 'Scott Clasen', 'Peter van Hardenberg', 'Daniel Farina', 'Will Leinweber', 'Ryan Smith', 'Mark McGranaghan']
+exclude_users = Set.new ['Edward Muller', 'Routing Monkey', 'Scott Clasen', 'Peter van Hardenberg', 'Daniel Farina', 'Will Leinweber', 'Ryan Smith', 'Mark McGranaghan', 'Harold Giménez', 'Phil Ripperger', 'John Simone', 'Glenn Gillen', 'Chris Stolt', 'Max Schoening', 'Mark Pundsack', 'Dominic Dagradi', 'JD']
 
 alerts.each do |alert|
   userid = alert["user"]["id"]
