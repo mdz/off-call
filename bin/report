@@ -57,9 +57,13 @@ alerts.each do |alert|
   userid = alert["user"]["id"]
   users[userid] ||= alert["user"]
   users[userid]["num_sms"] ||= 0
+  users[userid]["num_phone"] ||= 0
 
-  if alert["type"] == "SMS" and not exclude_users.include? users[userid]["name"]
+  next if exclude_users.include? users[userid]["name"]
+  if alert["type"] == "SMS"
     users[userid]["num_sms"] += 1
+  elsif alert["type"] == "Phone"
+    users[userid]["num_phone"] += 1
   end
 end
 
@@ -84,17 +88,24 @@ puts "## Alerts by person"
 puts
 
 Terminal::Table.new do |t|
-  t.headings = "User", "SMS count"
+  t.headings = "User", "SMS count", "Phone count"
 
-  smscount = []
+  user_sms_phone = []
   users.each do |userid,user|
-    next unless user["num_sms"] > 0
-    smscount << [user["name"], user["num_sms"]]
+    next unless user["num_sms"] > 0 or user["num_phone"] > 0
+    user_sms_phone << [user["name"], user["num_sms"], user["num_phone"]]
   end
   
-  t.rows     = smscount.sort { |a,b| b[1]<=>a[1] }
+  t.rows     = user_sms_phone.sort { |a,b| b[1]<=>a[1] }
   t << :separator  
-  t << ["TOTAL", smscount.inject(0) { |s,h| s += h[1] } ]
+  total_users = user_sms_phone.length
+  total_phone, total_sms = user_sms_phone.inject([0,0]) do |s,h|
+    s[0] += h[1]
+    s[1] += h[2]
+    s
+  end
+
+  t << ["#{total_users} users", total_phone, total_sms]
 
   puts t
 end
