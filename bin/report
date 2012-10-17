@@ -4,6 +4,7 @@
 
 require "./lib/off-call"
 require "terminal-table"
+require "tzinfo"
 
 ENV.source ".env"
 ENV["TZ"] = "UTC"
@@ -14,15 +15,13 @@ SERVICES  = ENV["SERVICES"].split(",") || abort("Must provide SERVICES=PXXXXXX,P
 SINCE     = ENV["SINCE"].to_time rescue "Last Week".to_time
 UNTIL     = ENV["UNTIL"].to_time rescue "Now".to_time
 
-# XXX this should just map to standard time zones and get the offsets from
-# zoneinfo
-tzoffset = {
-    "Eastern Time (US & Canada)" => -4, # "America/New_York"
-    "Central Time (US & Canada)" => -5, # "America/Chicago"
-    "Pacific Time (US & Canada)" => -7, # "America/Los_Angeles"
-    "Atlantic Time (Canada)" => -3, # "America/Halifax"
-    "Madrid" => 2, # "Europe/Madrid"
-    "UTC" => 0, # "UTC"
+tzmap = {
+    "Eastern Time (US & Canada)" => TZInfo::Timezone.get("America/New_York"),
+    "Central Time (US & Canada)" => TZInfo::Timezone.get("America/Chicago"),
+    "Pacific Time (US & Canada)" => TZInfo::Timezone.get("America/Los_Angeles"),
+    "Atlantic Time (Canada)" => TZInfo::Timezone.get("America/Halifax"),
+    "Madrid" => TZInfo::Timezone.get("Europe/Madrid"),
+    "UTC" => TZInfo::Timezone.get("UTC")
 }   
 
 incidents = []
@@ -71,15 +70,16 @@ alerts.each do |alert|
   users[userid]["num_phone"] ||= 0
 
   tz = users[userid]["time_zone"]
-  abort("Unknown time zone: "+ tz) unless tzoffset.include? tz
+  abort("Unknown time zone: "+ tz) unless tzmap.include? tz
 
-  hour = (alert["started_at"].to_time.hour + tzoffset[tz]) % 24
+  started = alert["started_at"].to_time
+  local_hour = tzmap[tz].utc_to_local(started).hour
 
   next if exclude_users.include? users[userid]["name"]
   if alert["type"] == "SMS"
     users[userid]["num_sms"] += 1
-    sms_by_hour[hour] ||= 0
-    sms_by_hour[hour] += 1
+    sms_by_hour[local_hour] ||= 0
+    sms_by_hour[local_hour] += 1
   elsif alert["type"] == "Phone"
     users[userid]["num_phone"] += 1
   end
