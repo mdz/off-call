@@ -18,6 +18,7 @@ UNTIL     = ENV["UNTIL"].to_time rescue "Now".to_time
 # zoneinfo
 tzoffset = {
     "Eastern Time (US & Canada)" => -4, # "America/New_York"
+    "Central Time (US & Canada)" => -5, # "America/Chicago"
     "Pacific Time (US & Canada)" => -7, # "America/Los_Angeles"
     "Atlantic Time (Canada)" => -3, # "America/Halifax"
     "Madrid" => 2, # "Europe/Madrid"
@@ -138,7 +139,7 @@ Terminal::Table.new do |t|
 end
 
 puts
-puts "## Incidents by hour"
+puts "## Incidents by hour (PagerDuty time)"
 puts
 
 Terminal::Table.new do |t|
@@ -153,7 +154,7 @@ Terminal::Table.new do |t|
 end
 
 puts
-puts "## SMS alerts by hour"
+puts "## SMS alerts by hour (local time)"
 puts
 
 Terminal::Table.new do |t|
