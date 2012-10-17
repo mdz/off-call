@@ -160,10 +160,19 @@ puts
 Terminal::Table.new do |t|
   t.headings = "Hour", "Count"
 
+  business_hours = [8, 19] # 7 PM and 8 AM local time
+  off_hours_sms = 0
   sms_by_hour.each do |k,v|
-    t << :separator if [8, 20].include? k # 8 PM and 8 AM local time
+    if k > business_hours[1] or k < business_hours[0]
+      off_hours_sms += v
+    end
+
+    t << :separator if business_hours.include? k # demarcate business hours
     t << [k,v]
   end
+
+  t << :separator
+  t << ["After hours", off_hours_sms]
 
   puts t
 end
