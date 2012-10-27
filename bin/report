@@ -197,7 +197,7 @@ Terminal::Table.new do |t|
 end
 
 puts
-puts "## SMS alerts by day"
+puts "## SMS alerts by day (local time)"
 puts
 
 Terminal::Table.new do |t|
