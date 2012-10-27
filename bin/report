@@ -8,6 +8,7 @@ require "tzinfo"
 
 ENV.source ".env"
 ENV["TZ"] = "UTC"
+business_hours = [8, 19] # 7 PM and 8 AM local time
 
 OffCall::PagerDuty.connect(ENV["PAGERDUTY_SUBDOMAIN"], ENV["PAGERDUTY_USER"], ENV["PAGERDUTY_PASSWORD"])
 
@@ -61,6 +62,8 @@ end
 alerts = OffCall::PagerDuty.alerts(since: SINCE, until: UNTIL)
 users = {}
 sms_by_hour = Hash[(0..23).zip [0]*24]
+sms_by_day  = Hash[%w(Mon Tue Wed Thu Fri Sat Sun ).zip [0]*7]
+off_hours_sms = 0
 exclude_users = Set.new ['Edward Muller', 'Routing Monkey', 'Scott Clasen', 'Peter van Hardenberg', 'Daniel Farina', 'Will Leinweber', 'Ryan Smith', 'Mark McGranaghan', 'Harold Giménez', 'Phil Ripperger', 'John Simone', 'Glenn Gillen', 'Chris Stolt', 'Max Schoening', 'Mark Pundsack', 'Dominic Dagradi', 'JD', 'Maciek Sakrejda', 'Naaman Newbold', 'Mattt Thompson', 'Caio Chassot', 'Matthew Manning', 'Ryan Brainard']
 
 alerts.each do |alert|
@@ -73,16 +76,23 @@ alerts.each do |alert|
   abort("Unknown time zone: "+ tz) unless tzmap.include? tz
 
   started = alert["started_at"].to_time
-  local_hour = tzmap[tz].utc_to_local(started).hour
+  local_time = tzmap[tz].utc_to_local(started)
+  local_hour = local_time.hour
+  local_wday = local_time.strftime("%a")
 
   next if exclude_users.include? users[userid]["name"]
   if alert["type"] == "SMS"
     users[userid]["num_sms"] += 1
-    sms_by_hour[local_hour] ||= 0
     sms_by_hour[local_hour] += 1
+    sms_by_day[local_wday] += 1
+
+    if local_wday == 'Sat' or local_wday == 'Sun' or local_hour > business_hours[1] or local_hour < business_hours[0]
+      off_hours_sms += 1
+    end
   elsif alert["type"] == "Phone"
     users[userid]["num_phone"] += 1
   end
+
 end
 
 puts "# Summary for #{SINCE} to #{UNTIL}"
@@ -160,19 +170,13 @@ puts
 Terminal::Table.new do |t|
   t.headings = "Hour", "Count"
 
-  business_hours = [8, 19] # 7 PM and 8 AM local time
-  off_hours_sms = 0
   sms_by_hour.each do |k,v|
-    if k > business_hours[1] or k < business_hours[0]
-      off_hours_sms += v
-    end
-
     t << :separator if business_hours.include? k # demarcate business hours
     t << [k,v]
   end
 
   t << :separator
-  t << ["After hours (#{business_hours[1]}-#{business_hours[0]})", off_hours_sms]
+  t << ["After hours (#{business_hours[1]}-#{business_hours[0]} + weekends)", off_hours_sms]
 
   puts t
 end
@@ -185,6 +189,21 @@ Terminal::Table.new do |t|
   t.headings = "Day", "Count"
 
  days.each do |k,v|
+    t << [k,v]
+    t << :separator if k == "Fri"
+  end
+
+  puts t
+end
+
+puts
+puts "## SMS alerts by day"
+puts
+
+Terminal::Table.new do |t|
+  t.headings = "Day", "Count"
+
+ sms_by_day.each do |k,v|
     t << [k,v]
     t << :separator if k == "Fri"
   end
