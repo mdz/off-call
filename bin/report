@@ -22,7 +22,8 @@ tzmap = {
     "Pacific Time (US & Canada)" => TZInfo::Timezone.get("America/Los_Angeles"),
     "Atlantic Time (Canada)" => TZInfo::Timezone.get("America/Halifax"),
     "Madrid" => TZInfo::Timezone.get("Europe/Madrid"),
-    "UTC" => TZInfo::Timezone.get("UTC")
+    "UTC" => TZInfo::Timezone.get("UTC"),
+    "Wellington" => TZInfo::Timezone.get("NZ")
 }   
 
 incidents = []
