@@ -23,7 +23,8 @@ tzmap = {
     "Atlantic Time (Canada)" => TZInfo::Timezone.get("America/Halifax"),
     "Madrid" => TZInfo::Timezone.get("Europe/Madrid"),
     "UTC" => TZInfo::Timezone.get("UTC"),
-    "Wellington" => TZInfo::Timezone.get("NZ")
+    "Wellington" => TZInfo::Timezone.get("NZ"),
+    "Perth" => TZInfo::Timezone.get("Australia/Perth")
 }   
 
 incidents = []
@@ -65,7 +66,7 @@ users = {}
 sms_by_hour = Hash[(0..23).zip [0]*24]
 sms_by_day  = Hash[%w(Mon Tue Wed Thu Fri Sat Sun ).zip [0]*7]
 off_hours_sms = 0
-exclude_users = Set.new ['Edward Muller', 'Routing Monkey', 'Scott Clasen', 'Peter van Hardenberg', 'Daniel Farina', 'Will Leinweber', 'Ryan Smith', 'Mark McGranaghan', 'Harold Giménez', 'Phil Ripperger', 'John Simone', 'Glenn Gillen', 'Chris Stolt', 'Max Schoening', 'Mark Pundsack', 'Dominic Dagradi', 'JD', 'Maciek Sakrejda', 'Naaman Newbold', 'Mattt Thompson', 'Caio Chassot', 'Matthew Manning', 'Ryan Brainard']
+exclude_users = Set.new ['Edward Muller', 'Routing Monkey', 'Scott Clasen', 'Peter van Hardenberg', 'Daniel Farina', 'Will Leinweber', 'Ryan Smith', 'Mark McGranaghan', 'Harold Giménez', 'Phil Ripperger', 'John Simone', 'Glenn Gillen', 'Chris Stolt', 'Max Schoening', 'Mark Pundsack', 'Dominic Dagradi', 'JD', 'Maciek Sakrejda', 'Naaman Newbold', 'Mattt Thompson', 'Caio Chassot', 'Matthew Manning', 'Ryan Brainard', 'Brett Goulder']
 last_page_to_user = {}
 
 alerts.each do |alert|
