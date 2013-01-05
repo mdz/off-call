@@ -34,7 +34,6 @@ SERVICES.each do |service_id|
 end
 
 subjects  = {}
-resolvers = {}
 hours     = Hash[(0..23).zip [0]*24]
 days      = Hash[%w(Mon Tue Wed Thu Fri Sat Sun ).zip [0]*7]
 
@@ -48,10 +47,6 @@ incidents.each do |i|
         trunc(90)
   subjects[k] ||= 0
   subjects[k]  += 1
-
-  k = i["last_status_change_by"]["name"] rescue "Nobody"
-  resolvers[k] ||= 0
-  resolvers[k]  += 1
 
   k = i["last_status_change_on"].to_time.hour
   hours[k] ||= 0
@@ -155,16 +150,6 @@ Terminal::Table.new do |t|
 
   t << ["#{total_users} users", total_phone, total_sms, total_interruptions]
 
-  puts t
-end
-
-puts
-puts "## Incidents resolved by person"
-puts
-
-Terminal::Table.new do |t|
-  t.headings = "Resolved By", "Count"
-  t.rows     = resolvers.sort { |a,b| b[1]<=>a[1] }
   puts t
 end
 
