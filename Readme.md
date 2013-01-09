@@ -16,6 +16,9 @@ Summary for PXXXXXX,PYYYYYY from 2012-05-16 12:00:00 +0000 to 2012-05-23 15:23:5
 +-----------------+-------+
 ...
 
-$ SERVICES=PZZZZZZ SINCE="Last Week" UNTIL=Now bin/report 
+$ SINCE="Last Week" UNTIL=Now bundle exec bin/report 
 ...
+
+$ SERVICES=PXXXXXX,PYYYYYY bundle SINCE="Last Week" UNTIL=Now bundle exec bin/report
+...report for specific services only...
 ```
