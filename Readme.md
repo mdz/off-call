@@ -28,8 +28,8 @@ The most important variables to set are:
 
  * **PAGERDUTY_SUBDOMAIN** The `pagerduty.com` subdomain to use as API
    endpoint.
- * **PAGERDUTY_USER* The username to use for authentication.
- * **PAGERDUTY_PASSWORD* The password to use for authentication.
+ * **PAGERDUTY_USER** The username to use for authentication.
+ * **PAGERDUTY_PASSWORD** The password to use for authentication.
  * **SERVICES** The services defined in PagerDuty to operate on.
 
 
