@@ -1,7 +1,12 @@
+#!/usr/bin/env ruby
+# coding: utf-8
+
 require 'rest_client'
 require 'cgi'
 require 'time'
 require 'json'
+require 'csv'
+require 'chronic'
 
 class Time
   def iso8601
@@ -9,20 +14,24 @@ class Time
   end
 end
 
+class String
+  def to_time
+    Time.parse(self) rescue Chronic.parse(self)
+  end
+end
+
 services = {
   ion: "PCV9AVS",
-  ops_api: "PCW414B"
+  ops_api: "PCW414B",
+  ops_pingdom: "PKIUP92"
 }
 
-users = {
-  mhale: "POYOHAF",
-  dan: "PVE7MPK"
-}
 
 user, password = ENV['AUTH'].to_s.split(":").map{|e| CGI.escape(e) }
 
+since = ENV["SINCE"].to_time rescue "Last Week".to_time
 params = {
-  'since' => (Time.now - 604800).iso8601,
+  'since' => since.iso8601,
   'until' => Time.now.iso8601,
   'service' => services.values.join(",")
 }
@@ -31,24 +40,28 @@ params_string = params.map{|k,v| "#{k}=#{v}" }.join('&')
 json = RestClient.get(%(https://#{user}:#{password}@heroku.pagerduty.com/api/v1/incidents?#{params_string}))
 data = JSON.parse(json)
 
-data["incidents"].each do |i|
-  row = [
-         i["service"]["name"].ljust(10),
-         i["id"].ljust(8),
-         i["created_on"].ljust(24),
-        ]
+CSV.open("incidents.csv", "wb") do |csv|
+  csv << ["Service", "Id", "Date", "Resolved By", "Summary", "Root Cause", "Remediation"]
 
-  if i["last_status_change_by"]
-    row << i["last_status_change_by"]["name"].ljust(20)
-  else
-    row << "".ljust(20)
+  data["incidents"].each do |i|
+    row = [
+           i["service"]["name"],
+           %(=HYPERLINK("#{i["html_url"]}","#{i["id"]}")),
+           i["created_on"],
+          ]
+
+    if i["last_status_change_by"]
+      row << i["last_status_change_by"]["name"]
+    else
+      row << ""
+    end
+
+    if i["trigger_summary_data"]
+      row << i["trigger_summary_data"]["description"]
+    else
+      row << i["incident_key"]
+    end
+
+    csv << row
   end
-
-  if i["trigger_summary_data"]
-    row << i["trigger_summary_data"]["description"]
-  else
-    row << i["incident_key"]
-  end
-
-  puts row.join
 end
