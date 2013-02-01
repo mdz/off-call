@@ -51,20 +51,32 @@ module OffCall
     end
 
     def self.connect(subdomain, user, password)
-      @api = RestClient::Resource.new("https://#{subdomain}.pagerduty.com/api/", user: user, password: password)
+      @api = RestClient::Resource.new(
+        "https://#{subdomain}.pagerduty.com/api/",
+        user: user, password: password)
+    end
+
+    def self.paginated_get(resource, result_key, params)
+      results = []
+      offset = 0
+      loop do
+        params[:offset] = offset
+        result = JSON.parse(PagerDuty.api[resource].get(params: params))
+        results += result[result_key]
+        break if results.length >= result["total"]
+        offset += result[result_key].length
+      end
+      results
     end
 
     def self.alerts(params={})
       params.reverse_merge!(until: Time.now, since: Time.now-60*60*24)
-      alerts = []
-      expected = 1
-      while alerts.length < expected do
-        params["offset"] = alerts.length
-        result = JSON.parse(PagerDuty.api["v1/alerts"].get(params: params))
-        alerts += result["alerts"]
-        expected = result["total"]
-      end
-      alerts
+      PagerDuty.paginated_get("v1/alerts", "alerts", params)
+    end
+
+    def self.incidents(params={})
+      params.reverse_merge!(until: Time.now, since: Time.now-60*60*24)
+      PagerDuty.paginated_get("v1/incidents", "incidents", params)
     end
 
     class Service
