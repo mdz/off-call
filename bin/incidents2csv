@@ -1,53 +1,38 @@
 #!/usr/bin/env ruby
 # coding: utf-8
 
-require 'rest_client'
-require 'cgi'
-require 'time'
-require 'json'
+require "./lib/off-call"
 require 'csv'
-require 'chronic'
 
-class Time
-  def iso8601
-    self.utc.strftime('%Y%m%dT%H%M%SZ')
-  end
-end
+ENV.source ".env"
 
-class String
-  def to_time
-    Time.parse(self) rescue Chronic.parse(self)
-  end
-end
+OffCall::PagerDuty.connect(
+  ENV["PAGERDUTY_SUBDOMAIN"],
+  ENV["PAGERDUTY_USER"],
+  ENV["PAGERDUTY_PASSWORD"])
 
-services = {
-  ion: "PCV9AVS",
-  ops_api: "PCW414B",
-  ops_pingdom: "PKIUP92"
-}
-
-
-user, password = ENV['AUTH'].to_s.split(":").map{|e| CGI.escape(e) }
-
+services = ENV["SERVICES"].split(",") || abort(
+  "Must provide SERVICES=PXXXXXX,PYYYYYY")
 since = ENV["SINCE"].to_time rescue "Last Week".to_time
-params = {
-  'since' => since.iso8601,
-  'until' => Time.now.iso8601,
-  'service' => services.values.join(",")
-}
-params_string = params.map{|k,v| "#{k}=#{v}" }.join('&')
+until_ = ENV["UNTIL"].to_time rescue "Now".to_time
 
-json = RestClient.get(%(https://#{user}:#{password}@heroku.pagerduty.com/api/v1/incidents?#{params_string}))
-data = JSON.parse(json)
+params = {
+  :since => since.iso8601,
+  :until => until_.iso8601,
+  :service => services.join(",")
+}
 
 CSV.open("incidents.csv", "wb") do |csv|
-  csv << ["Service", "Id", "Date", "Resolved By", "Summary", "Root Cause", "Remediation"]
+  csv << ["Service", "Id", "Date", "Resolved By", "Summary",
+          "Root Cause", "Remediation", "Trello Card"]
 
-  data["incidents"].each do |i|
+  incidents = OffCall::PagerDuty.incidents(params)
+  puts "Found #{incidents.length} matching incidents."
+  incidents.each do |i|
     row = [
            i["service"]["name"],
            %(=HYPERLINK("#{i["html_url"]}","#{i["id"]}")),
-           i["created_on"],
+           Time.parse(i["created_on"]).strftime('%Y-%m-%d %H:%M:%S'),
           ]
 
     if i["last_status_change_by"]
