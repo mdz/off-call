@@ -19,6 +19,7 @@ UNTIL     = ENV["UNTIL"].to_time rescue "Now".to_time
 tzmap = {
     "Eastern Time (US & Canada)" => TZInfo::Timezone.get("America/New_York"),
     "Central Time (US & Canada)" => TZInfo::Timezone.get("America/Chicago"),
+    "Mountain Time (US & Canada)" => TZInfo::Timezone.get("America/Denver"),
     "Pacific Time (US & Canada)" => TZInfo::Timezone.get("America/Los_Angeles"),
     "Atlantic Time (Canada)" => TZInfo::Timezone.get("America/Halifax"),
     "Madrid" => TZInfo::Timezone.get("Europe/Madrid"),
@@ -45,7 +46,7 @@ incidents.each do |i|
   k = (tsm["subject"] || tsm["description"] || i["incident_key"])
   k = k.
         gsub(/^\[nagios\] \(CRITICAL\) /, "").
-        gsub(/([a-z_-]+)-([0-9]+)(\.(?:heroku|heroku-b|us-west-2.herokudev|ops.herokai)?\.com)/, "\\1-XXXXX\\3").
+        gsub(/([a-z_-]+)-([0-9]+)(\.(?:heroku|heroku-b|us-west-2.herokudev|heroku-eu-west-1-a|ops.herokai)?\.com)/, "\\1-XXXXX\\3").
         gsub(/^(canary:) (\w+) (\w+) (\d+)/, "\\1 \\2 \\3 N").
         gsub(/^(face-)(\d+\.\d+\.\d+\.\d+)$/, "\\1a.b.c.d").
         gsub(/^(Sentinel\/)\d+(.*)$/, "\\1XXXXX\\2").
