@@ -42,7 +42,11 @@ CSV.open("incidents.csv", "wb") do |csv|
     end
 
     if i["trigger_summary_data"]
-      row << i["trigger_summary_data"]["description"]
+      if i["trigger_summary_data"]["description"]
+        row << i["trigger_summary_data"]["description"]
+      else
+        row << i["trigger_summary_data"]["subject"]
+      end
     else
       row << i["incident_key"]
     end
