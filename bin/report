@@ -9,6 +9,7 @@ require "tzinfo"
 ENV.source ".env"
 ENV["TZ"] = "UTC"
 business_hours = [8, 19] # 7 PM and 8 AM local time
+debugging = False
 
 OffCall::PagerDuty.connect(ENV["PAGERDUTY_SUBDOMAIN"], ENV["PAGERDUTY_USER"], ENV["PAGERDUTY_PASSWORD"])
 
@@ -41,6 +42,7 @@ days      = Hash[%w(Mon Tue Wed Thu Fri Sat Sun ).zip [0]*7]
 services  = {}
 
 incidents.each do |i|
+  puts i if debugging
   # normalize instance-type-id/Service
   tsm = i["trigger_summary_data"] || {}
   k = (tsm["subject"] || tsm["description"] || i["incident_key"])
@@ -78,6 +80,7 @@ exclude_users = Set.new ['Routing Monkey', 'Scott Clasen', 'Peter van Hardenberg
 last_page_to_user = {}
 
 alerts.each do |alert|
+  puts alert if debugging
   userid = alert["user"]["id"]
   users[userid] ||= alert["user"]
   users[userid]["num_sms"] ||= 0
