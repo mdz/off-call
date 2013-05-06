@@ -86,6 +86,7 @@ alerts.each do |alert|
   users[userid]["num_sms"] ||= 0
   users[userid]["num_phone"] ||= 0
   users[userid]["num_interruptions"] ||= 0
+  users[userid]["num_after_hours"] ||= 0
 
   tz = users[userid]["time_zone"]
   abort("Unknown time zone: "+ tz) unless tzmap.include? tz
@@ -117,6 +118,7 @@ alerts.each do |alert|
 
     if local_wday == 'Sat' or local_wday == 'Sun' or local_hour > business_hours[1] or local_hour < business_hours[0]
       off_hours_sms += 1
+      users[userid]["num_after_hours"] += 1
     end
   elsif alert["type"] == "Phone"
     users[userid]["num_phone"] += 1
@@ -145,12 +147,12 @@ puts "## Alerts by person"
 puts
 
 Terminal::Table.new do |t|
-  t.headings = "User", "SMS count", "Phone count", "Interruptions"
+  t.headings = "User", "SMS count", "Phone count", "Interruptions", "After hours"
 
   user_sms_phone = []
   users.each do |userid,user|
     next unless user["num_sms"] > 0 or user["num_phone"] > 0
-    user_sms_phone << [user["name"], user["num_sms"], user["num_phone"], user["num_interruptions"]]
+    user_sms_phone << [user["name"], user["num_sms"], user["num_phone"], user["num_interruptions"], user["num_after_hours"]]
   end
   
   t.rows     = user_sms_phone.sort { |a,b| b[3]<=>a[3] }
@@ -163,7 +165,7 @@ Terminal::Table.new do |t|
     s
   end
 
-  t << ["#{total_users} users", total_phone, total_sms, total_interruptions]
+  t << ["#{total_users} users", total_phone, total_sms, total_interruptions, off_hours_sms]
 
   puts t
 end
@@ -204,9 +206,6 @@ Terminal::Table.new do |t|
     t << :separator if business_hours.include? k # demarcate business hours
     t << [k,v]
   end
-
-  t << :separator
-  t << ["After hours (#{business_hours[1]}-#{business_hours[0]} + weekends)", off_hours_sms]
 
   puts t
 end
