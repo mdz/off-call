@@ -9,13 +9,13 @@ require "tzinfo"
 ENV.source ".env"
 ENV["TZ"] = "UTC"
 business_hours = [8, 19] # 7 PM and 8 AM local time
-debugging = False
+debugging = false
 
 OffCall::PagerDuty.connect(ENV["PAGERDUTY_SUBDOMAIN"], ENV["PAGERDUTY_USER"], ENV["PAGERDUTY_PASSWORD"])
 
 SERVICES  = ENV["SERVICES"].split(",") || abort("Must provide SERVICES=PXXXXXX,PYYYYYY")
-SINCE     = ENV["SINCE"].to_time rescue "Last Week".to_time
-UNTIL     = ENV["UNTIL"].to_time rescue "Now".to_time
+SINCE     = Time.parse(ENV["SINCE"].to_time)
+UNTIL     = Time.parse(ENV["UNTIL"].to_time)
 
 tzmap = {
     "Eastern Time (US & Canada)" => TZInfo::Timezone.get("America/New_York"),
