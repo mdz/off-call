@@ -2,7 +2,7 @@
 # coding: utf-8
 
 require "./lib/off-call"
-require 'csv'
+require 'axlsx'
 
 ENV.source ".env"
 
@@ -22,17 +22,33 @@ params = {
   :service => services.join(",")
 }
 
-CSV.open("incidents.csv", "wb") do |csv|
-  csv << ["Service", "Id", "Date", "Resolved By", "Summary",
-          "Root Cause", "Remediation", "Trello Card"]
+Axlsx::Package.new do |p|
+  workbook = p.workbook
+  sheet = workbook.add_worksheet :name => Time.now.strftime('%Y-%m-%d')
+  
+  header_style = workbook.styles.add_style(
+    :sz => 10, :b => true, :alignment => { :horizontal => :center,
+                                             :vertical => :bottom } )
+  normal_style = workbook.styles.add_style(
+    :sz => 10, :alignment => { :horizontal => :left,
+                               :vertical => :top, :wrapText => true} )
+
+  date_style = workbook.styles.add_style :sz => 10,
+    :sz => 10, :num_fmt => Axlsx::NUM_FMT_YYYYMMDDHHMMSS,
+    :alignment => { :horizontal => :left, :vertical => :top,
+                    :wrapText => true }
+  sheet.add_row [
+    "Service", "Id", "Date", "Resolved By", "Summary",
+    "Root Cause", "Remediation", "Trello Card"], :style => header_style
 
   incidents = OffCall::PagerDuty.incidents(params)
   puts "Found #{incidents.length} matching incidents."
   incidents.each do |i|
+    puts i["created_on"]
     row = [
            i["service"]["name"],
            %(=HYPERLINK("#{i["html_url"]}","#{i["id"]}")),
-           Time.parse(i["created_on"]).strftime('%Y-%m-%d %H:%M:%S'),
+           i["created_on"],
           ]
 
     if i["last_status_change_by"]
@@ -51,6 +67,22 @@ CSV.open("incidents.csv", "wb") do |csv|
       row << i["incident_key"]
     end
 
-    csv << row
+    sheet.add_row row,
+      :style => [normal_style] * 2 + [date_style] + [normal_style] * 5
   end
+
+  widths = [4.times.map { 9 }, 35, 22, 22, 10].flatten
+  sheet.column_widths *widths
+
+  # Freeze the header row
+  sheet.sheet_view.pane do |pane|
+    pane.top_left_cell = "B1"
+    pane.state = :frozen
+    pane.y_split = 1
+    pane.active_pane = :bottom_right
+  end
+
+  # Numbers interop
+  p.use_shared_strings = true
+  p.serialize("incidents.xls")
 end
