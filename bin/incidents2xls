@@ -66,7 +66,7 @@ Axlsx::Package.new do |p|
       row << i["incident_key"]
     end
 
-    sheet.add_row row,
+    sheet.add_row row + [""] * 3,
       :style => [normal_style] * 2 + [date_style] + [normal_style] * 5
   end
 
