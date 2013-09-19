@@ -48,29 +48,32 @@ Axlsx::Package.new do |p|
                     :wrapText => true }
 
   date_style_hl = workbook.styles.add_style(
-    :sz => 10, :alignment => { :horizontal => :left,
-                               :vertical => :top, :wrapText => true},
-    :bg_color => "F4CCCC")
+    :sz => 10, :num_fmt => Axlsx::NUM_FMT_YYYYMMDDHHMMSS,
+    :alignment => { :horizontal => :left, :vertical => :top,
+                    :wrapText => true}, :bg_color => "F4CCCC")
 
-  normal_row_style = [normal_style] * 2 + [date_style] + [normal_style] * 5
+  normal_row_style = [normal_style] * 2 + [date_style] + [normal_style] * 6
   highlight_row_style = [normal_style_hl] * 2 + [date_style_hl] +
-    [normal_style_hl] * 2 + [normal_style] * 3
+    [normal_style_hl] * 3 + [normal_style] * 3
 
   sheet.add_row [
-    "Service", "Id", "Date", "Splunk", "Summary",
+    "Service", "Id", "Date", "Resolved in", "Splunk Link", "Summary",
     "Root Cause", "Remediation", "Trello Card"], :style => header_style
 
   incidents = OffCall::PagerDuty.incidents(params)
   puts "Found #{incidents.length} matching incidents."
   incidents.each do |i|
-    date = Time.parse(i["created_on"])
+    opened = Time.parse(i["created_on"])
+    closed = Time.parse(i["last_status_change_on"])
+
     splunk_query = CGI::escape(
-      "search earliest=#{(date - 5*60).strftime SPLUNK_TIMEFMT}" +
-      " latest=#{(date + 5*60).strftime SPLUNK_TIMEFMT}")
+      "search earliest=#{(opened- 5*60).strftime SPLUNK_TIMEFMT}" +
+      " latest=#{(opened+ 5*60).strftime SPLUNK_TIMEFMT}")
     row = [
            i["service"]["name"],
            %(=HYPERLINK("#{i["html_url"]}","#{i["id"]}")),
-           date,
+           opened,
+           ((closed - opened) / 60).round,
            %(=HYPERLINK("#{SPLUNK_SEARCH_URL + splunk_query}","10 minutes"))
           ]
 
@@ -84,16 +87,16 @@ Axlsx::Package.new do |p|
       row << i["incident_key"]
     end
 
-    if i["service"]["name"].include? "Non-critical"
-      row_style = normal_row_style
-    else
+    if i["number_of_escalations"].to_i > 0
       row_style = highlight_row_style
+    else
+      row_style = normal_row_style
     end
 
     sheet.add_row row + [""] * 3, :style => row_style
   end
 
-  widths = [4.times.map { 9 }, 35, 22, 22, 10].flatten
+  widths = [5.times.map { 9 }, 35, 22, 22, 10].flatten
   sheet.column_widths *widths
 
   # Freeze the header row
