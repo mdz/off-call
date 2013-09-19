@@ -3,6 +3,7 @@
 
 require "./lib/off-call"
 require 'axlsx'
+require 'CGI'
 
 ENV.source ".env"
 
@@ -22,10 +23,13 @@ params = {
   :service => services.join(",")
 }
 
+SPLUNK_SEARCH_URL = "https://splunk.herokai.com/en-US/app/search/flashtimeline?q="
+SPLUNK_TIMEFMT = "%m/%d/%Y:%H:%M:%S"
+
 Axlsx::Package.new do |p|
   workbook = p.workbook
   sheet = workbook.add_worksheet :name => Time.now.strftime('%Y-%m-%d')
-  
+
   header_style = workbook.styles.add_style(
     :sz => 10, :b => true, :alignment => { :horizontal => :center,
                                              :vertical => :bottom } )
@@ -33,28 +37,42 @@ Axlsx::Package.new do |p|
     :sz => 10, :alignment => { :horizontal => :left,
                                :vertical => :top, :wrapText => true} )
 
+  normal_style_hl = workbook.styles.add_style(
+    :sz => 10, :alignment => { :horizontal => :left,
+                               :vertical => :top, :wrapText => true},
+    :bg_color => "F4CCCC" )
+
   date_style = workbook.styles.add_style :sz => 10,
     :sz => 10, :num_fmt => Axlsx::NUM_FMT_YYYYMMDDHHMMSS,
     :alignment => { :horizontal => :left, :vertical => :top,
                     :wrapText => true }
+
+  date_style_hl = workbook.styles.add_style(
+    :sz => 10, :alignment => { :horizontal => :left,
+                               :vertical => :top, :wrapText => true},
+    :bg_color => "F4CCCC")
+
+  normal_row_style = [normal_style] * 2 + [date_style] + [normal_style] * 5
+  highlight_row_style = [normal_style_hl] * 2 + [date_style_hl] +
+    [normal_style_hl] * 2 + [normal_style] * 3
+
   sheet.add_row [
-    "Service", "Id", "Date", "Resolved By", "Summary",
+    "Service", "Id", "Date", "Splunk", "Summary",
     "Root Cause", "Remediation", "Trello Card"], :style => header_style
 
   incidents = OffCall::PagerDuty.incidents(params)
   puts "Found #{incidents.length} matching incidents."
   incidents.each do |i|
+    date = Time.parse(i["created_on"])
+    splunk_query = CGI::escape(
+      "search earliest=#{(date - 5*60).strftime SPLUNK_TIMEFMT}" +
+      " latest=#{(date + 5*60).strftime SPLUNK_TIMEFMT}")
     row = [
            i["service"]["name"],
            %(=HYPERLINK("#{i["html_url"]}","#{i["id"]}")),
-           Time.parse(i["created_on"]),
+           date,
+           %(=HYPERLINK("#{SPLUNK_SEARCH_URL + splunk_query}","10 minutes"))
           ]
-
-    if i["last_status_change_by"]
-      row << i["last_status_change_by"]["name"]
-    else
-      row << ""
-    end
 
     if i["trigger_summary_data"]
       if i["trigger_summary_data"]["description"]
@@ -66,8 +84,13 @@ Axlsx::Package.new do |p|
       row << i["incident_key"]
     end
 
-    sheet.add_row row + [""] * 3,
-      :style => [normal_style] * 2 + [date_style] + [normal_style] * 5
+    if i["service"]["name"].include? "Non-critical"
+      row_style = normal_row_style
+    else
+      row_style = highlight_row_style
+    end
+
+    sheet.add_row row + [""] * 3, :style => row_style
   end
 
   widths = [4.times.map { 9 }, 35, 22, 22, 10].flatten
