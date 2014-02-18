@@ -23,7 +23,7 @@ params = {
   :service => services.join(",")
 }
 
-SPLUNK_SEARCH_URL = "https://splunk.herokai.com/en-US/app/search/flashtimeline?q="
+SPLUNK_SEARCH_URL = "https://splunk.herokai.com/en-US/app/search/search?q="
 SPLUNK_TIMEFMT = "%m/%d/%Y:%H:%M:%S"
 
 Axlsx::Package.new do |p|
