@@ -93,7 +93,14 @@ Axlsx::Package.new do |p|
       row_style = normal_row_style
     end
 
-    sheet.add_row row + [""] * 3, :style => row_style
+    notes = []
+    OffCall::PagerDuty.log_entries(i["id"]).each do |l|
+      if l.has_key? "channel" and l["channel"]["type"] == "note" then
+        notes << "• #{l['agent']['name']}: #{l['channel']['summary']}"
+      end
+    end
+
+    sheet.add_row row + [notes.join("\n"), "", ""], :style => row_style
   end
 
   widths = [5.times.map { 9 }, 35, 22, 22, 10].flatten

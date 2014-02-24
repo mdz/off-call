@@ -79,6 +79,11 @@ module OffCall
       PagerDuty.paginated_get("v1/incidents", "incidents", params)
     end
 
+    def self.log_entries(service, params={})
+      PagerDuty.paginated_get(
+        "v1/incidents/#{service}/log_entries", "log_entries", params)
+    end
+
     class Service
       def initialize(id)
         @id = id
@@ -92,7 +97,7 @@ module OffCall
           since:    opts[:since].iso8601
         }
 
-        JSON.parse(PagerDuty.api["v1/incidents"].get(params: params))["incidents"]
+        PagerDuty.api["v1/incidents"].paginated_get(params: params)
       end
 
     end
