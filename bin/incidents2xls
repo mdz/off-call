@@ -18,8 +18,8 @@ since = ENV["SINCE"].to_time rescue "Last Week".to_time
 until_ = ENV["UNTIL"].to_time rescue "Now".to_time
 
 params = {
-  :since => since.iso8601,
-  :until => until_.iso8601,
+  :since => since,
+  :until => until_,
   :service => services.join(",")
 }
 

@@ -69,14 +69,39 @@ module OffCall
       results
     end
 
+    def self.params_with_dates(params, start, end_)
+      p = Hash[params]
+      p[:since] = start.iso8601
+      p[:until] = end_.iso8601
+      p
+    end
+
+    def self.thirty_days_batches(params)
+      results = []
+      start = params[:since]
+      until_ = params[:until]
+      loop do
+        results += yield start, [start + 30, until_].min
+        start += 30
+        break if start >= until_
+      end
+      results
+    end
+
     def self.alerts(params={})
       params.reverse_merge!(until: Time.now, since: Time.now-60*60*24)
-      PagerDuty.paginated_get("v1/alerts", "alerts", params)
+      thirty_days_batches params do |start, end_|
+        PagerDuty.paginated_get(
+          "v1/alerts", "alerts", params_with_dates(params, start, end_))
+      end
     end
 
     def self.incidents(params={})
       params.reverse_merge!(until: Time.now, since: Time.now-60*60*24)
-      PagerDuty.paginated_get("v1/incidents", "incidents", params)
+      thirty_days_batches params do |start, end_|
+        PagerDuty.paginated_get(
+          "v1/incidents", "incidents", params_with_dates(params, start, end_))
+      end
     end
 
     def self.log_entries(service, params={})
