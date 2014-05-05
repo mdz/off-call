@@ -2,9 +2,6 @@
 # coding: utf-8
 
 require "./lib/off-call"
-require "date"
-require "active_support"
-require "active_support/core_ext/date/calculations"
 require 'csv'
 
 ENV.source ".env"

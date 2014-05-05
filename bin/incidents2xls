@@ -14,8 +14,8 @@ OffCall::PagerDuty.connect(
 
 services = ENV["SERVICES"].split(",") || abort(
   "Must provide SERVICES=PXXXXXX,PYYYYYY")
-since = ENV["SINCE"].to_time rescue "Last Week".to_time
-until_ = ENV["UNTIL"].to_time rescue "Now".to_time
+since = ENV["SINCE"].to_datetime rescue "Last Week".to_datetime
+until_ = ENV["UNTIL"].to_datetime rescue "Now".to_datetime
 
 params = {
   :since => since,

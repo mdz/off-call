@@ -1,4 +1,7 @@
 require "chronic"
+require "date"
+require "active_support"
+require "active_support/core_ext/date/calculations"
 require "json"
 require "rest-client"
 require "time"
@@ -24,8 +27,16 @@ ENV.instance_eval do
 end
 
 class String
-  def to_time
-    Time.parse(self) rescue Chronic.parse(self)
+  def to_datetime
+    t = Time.parse(self) rescue Chronic.parse(self)
+    #
+    # Convert seconds + microseconds into a fractional number of seconds
+    seconds = t.sec + Rational(t.usec, 10**6)
+
+    # Convert a UTC offset measured in minutes to one measured in a
+    # fraction of a day.
+    offset = Rational(t.utc_offset, 60 * 60 * 24)
+    DateTime.new(t.year, t.month, t.day, t.hour, t.min, seconds, offset)
   end
 
   def trunc(len)
