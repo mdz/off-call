@@ -3,7 +3,7 @@
 
 require "./lib/off-call"
 require 'axlsx'
-require 'CGI'
+require 'open-uri'
 
 ENV.source ".env"
 
@@ -60,6 +60,9 @@ Axlsx::Package.new do |p|
     "Service", "Id", "Date", "Resolved in", "Splunk Link", "Summary",
     "Root Cause", "Remediation", "Trello Card"], :style => header_style
 
+  row_data = []
+  row_styling = []
+
   incidents = OffCall::PagerDuty.incidents(params)
   puts "Found #{incidents.length} matching incidents."
   incidents.each do |i|
@@ -100,7 +103,42 @@ Axlsx::Package.new do |p|
       end
     end
 
-    sheet.add_row row + [notes.join("\n"), "", ""], :style => row_style
+    row_data.push(row + [notes.join("\n"), "", ""])
+    row_styling.push(row_style)
+  end
+
+  # Get Heroku status events
+  status_uri = "https://status.heroku.com/api/v3/issues"
+  status_options = since.strftime("?since=%Y-%m-%d")
+  url =  "#{status_uri}#{status_options}"
+  buffer = open(url).read
+  status = JSON.parse(buffer)
+  puts "Found #{status.length} matching status."
+
+  status.each do |s|
+    opened = Time.parse(s["created_at"])
+    closed = Time.parse(s["updated_at"])
+    title = s["title"]
+
+    row = [
+           "Heroku Status",
+           %(=HYPERLINK("#{s["full_url"]}","#{s["id"]}")),
+           opened,
+           ((closed - opened) / 60).round,
+           "",
+           s["title"]
+          ]
+
+    row_data.push(row + ["", "", ""])
+    row_styling.push(highlight_row_style)
+  end
+
+  row_styling, row_data = row_styling.zip(row_data).sort_by do |e| 
+    e[1][2]
+  end .transpose
+
+  row_data.zip row_styling do |i|
+    sheet.add_row i[0], :style => i[1]
   end
 
   widths = [5.times.map { 9 }, 35, 22, 22, 10].flatten
