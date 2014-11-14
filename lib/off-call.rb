@@ -1,4 +1,7 @@
 require "chronic"
+require "date"
+require "active_support"
+require "active_support/core_ext/date/calculations"
 require "json"
 require "rest-client"
 require "time"
@@ -24,8 +27,16 @@ ENV.instance_eval do
 end
 
 class String
-  def to_time
-    Time.parse(self) rescue Chronic.parse(self)
+  def to_datetime
+    t = Time.parse(self) rescue Chronic.parse(self)
+    #
+    # Convert seconds + microseconds into a fractional number of seconds
+    seconds = t.sec + Rational(t.usec, 10**6)
+
+    # Convert a UTC offset measured in minutes to one measured in a
+    # fraction of a day.
+    offset = Rational(t.utc_offset, 60 * 60 * 24)
+    DateTime.new(t.year, t.month, t.day, t.hour, t.min, seconds, offset)
   end
 
   def trunc(len)
@@ -69,14 +80,44 @@ module OffCall
       results
     end
 
+    def self.params_with_dates(params, start, end_)
+      p = Hash[params]
+      p[:since] = start.iso8601
+      p[:until] = end_.iso8601
+      p
+    end
+
+    def self.thirty_days_batches(params)
+      results = []
+      start = params[:since]
+      until_ = params[:until]
+      loop do
+        results += yield start, [start + 30, until_].min
+        start += 30
+        break if start >= until_
+      end
+      results
+    end
+
     def self.alerts(params={})
       params.reverse_merge!(until: Time.now, since: Time.now-60*60*24)
-      PagerDuty.paginated_get("v1/alerts", "alerts", params)
+      thirty_days_batches params do |start, end_|
+        PagerDuty.paginated_get(
+          "v1/alerts", "alerts", params_with_dates(params, start, end_))
+      end
     end
 
     def self.incidents(params={})
       params.reverse_merge!(until: Time.now, since: Time.now-60*60*24)
-      PagerDuty.paginated_get("v1/incidents", "incidents", params)
+      thirty_days_batches params do |start, end_|
+        PagerDuty.paginated_get(
+          "v1/incidents", "incidents", params_with_dates(params, start, end_))
+      end
+    end
+
+    def self.log_entries(service, params={})
+      PagerDuty.paginated_get(
+        "v1/incidents/#{service}/log_entries", "log_entries", params)
     end
 
     class Service
@@ -92,7 +133,7 @@ module OffCall
           since:    opts[:since].iso8601
         }
 
-        JSON.parse(PagerDuty.api["v1/incidents"].get(params: params))["incidents"]
+        PagerDuty.api["v1/incidents"].paginated_get(params: params)
       end
 
     end

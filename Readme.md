@@ -6,7 +6,7 @@ It include the following commands:
 
  * `report` - Generate report of PagerDuty activity for a specific time
    range.
- * `incidents2csv` - Export listing of incidents into CSV format.
+ * `incidents2xls` - Export listing of incidents into XLS format.
 
 ## Installation
 
@@ -61,9 +61,9 @@ $ SERVICES=PXXXXXX,PYYYYYY bundle SINCE="Last Week" UNTIL=Now bundle exec bin/re
 Usage:
 
 ```
-$ bundle exec bin/incidents2csv
+$ bundle exec bin/incidents2xls
 Found 12 matching incidents.
 ```
 
-The file `incidents.csv` in the current direction will contain the
-exported CSV data.
+The file `incidents.xls` in the current direction will contain the
+exported XLS data.

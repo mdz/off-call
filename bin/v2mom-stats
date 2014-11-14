@@ -1,0 +1,57 @@
+#!/usr/bin/env ruby
+# coding: utf-8
+
+require "./lib/off-call"
+require 'csv'
+
+ENV.source ".env"
+
+OffCall::PagerDuty.connect(
+  ENV["PAGERDUTY_SUBDOMAIN"],
+  ENV["PAGERDUTY_USER"],
+  ENV["PAGERDUTY_PASSWORD"])
+
+services = ENV["SERVICES"].split(",") || abort(
+  "Must provide SERVICES=PXXXXXX,PYYYYYY")
+
+fy_year = ENV["YEAR"].to_i rescue Date.today.year
+fy_start = DateTime.new(fy_year,2,1,0,0,0,0)
+first_week_start = fy_start.monday
+fy_end = DateTime.new(fy_year+1,2,1,0,0,0,0)
+
+params = {
+  :since => first_week_start,
+  :until => fy_end,
+  :service => services.join(",")
+}
+
+puts "Fetching incidents..."
+incidents = OffCall::PagerDuty.incidents(params)
+puts "Found #{incidents.length} matching incidents."
+
+stats = []
+52.times { stats << [0,0] }
+
+incidents.each do |i|
+  # to_datetime because Time doesn't support calculation with datetime
+  date = Time.parse(i["created_on"]).to_datetime
+  week = ((date - first_week_start) / 7).to_i
+  week = [52, week].min
+
+  # Count incidents
+  stats[week][1] += 1
+
+  # Pages
+  if i["number_of_escalations"].to_i > 0
+    stats[week][0] += 1
+  end
+end
+
+outfile = open("stats.csv","w")
+csv = CSV(outfile)
+csv << ["Week", "Quarter", "Pages", "Incidents"]
+stats.each_with_index do |s, idx|
+  csv << [idx + 1, "Q#{(idx / 13).to_i + 1}"] + s
+end
+outfile.close
+puts "Stats written to stats.csv"

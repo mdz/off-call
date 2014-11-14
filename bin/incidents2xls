@@ -1,0 +1,158 @@
+#!/usr/bin/env ruby
+# coding: utf-8
+
+require "./lib/off-call"
+require 'axlsx'
+require 'open-uri'
+
+ENV.source ".env"
+
+OffCall::PagerDuty.connect(
+  ENV["PAGERDUTY_SUBDOMAIN"],
+  ENV["PAGERDUTY_USER"],
+  ENV["PAGERDUTY_PASSWORD"])
+
+services = ENV["SERVICES"].split(",") || abort(
+  "Must provide SERVICES=PXXXXXX,PYYYYYY")
+since = ENV["SINCE"].to_datetime rescue "Last Week".to_datetime
+until_ = ENV["UNTIL"].to_datetime rescue "Now".to_datetime
+
+params = {
+  :since => since,
+  :until => until_,
+  :service => services.join(",")
+}
+
+SPLUNK_SEARCH_URL = "https://splunk.herokai.com/en-US/app/search/search?q="
+SPLUNK_TIMEFMT = "%m/%d/%Y:%H:%M:%S"
+
+Axlsx::Package.new do |p|
+  workbook = p.workbook
+  sheet = workbook.add_worksheet :name => Time.now.strftime('%Y-%m-%d')
+
+  header_style = workbook.styles.add_style(
+    :sz => 10, :b => true, :alignment => { :horizontal => :center,
+                                             :vertical => :bottom } )
+  normal_style = workbook.styles.add_style(
+    :sz => 10, :alignment => { :horizontal => :left,
+                               :vertical => :top, :wrapText => true} )
+
+  normal_style_hl = workbook.styles.add_style(
+    :sz => 10, :alignment => { :horizontal => :left,
+                               :vertical => :top, :wrapText => true},
+    :bg_color => "F4CCCC" )
+
+  date_style = workbook.styles.add_style :sz => 10,
+    :sz => 10, :num_fmt => Axlsx::NUM_FMT_YYYYMMDDHHMMSS,
+    :alignment => { :horizontal => :left, :vertical => :top,
+                    :wrapText => true }
+
+  date_style_hl = workbook.styles.add_style(
+    :sz => 10, :num_fmt => Axlsx::NUM_FMT_YYYYMMDDHHMMSS,
+    :alignment => { :horizontal => :left, :vertical => :top,
+                    :wrapText => true}, :bg_color => "F4CCCC")
+
+  normal_row_style = [normal_style] * 2 + [date_style] + [normal_style] * 6
+  highlight_row_style = [normal_style_hl] * 2 + [date_style_hl] +
+    [normal_style_hl] * 3 + [normal_style] * 3
+
+  sheet.add_row [
+    "Service", "Id", "Date", "Resolved in", "Splunk Link", "Summary",
+    "Root Cause", "Remediation", "Trello Card"], :style => header_style
+
+  row_data = []
+  row_styling = []
+
+  incidents = OffCall::PagerDuty.incidents(params)
+  puts "Found #{incidents.length} matching incidents."
+  incidents.each do |i|
+    opened = Time.parse(i["created_on"])
+    closed = Time.parse(i["last_status_change_on"])
+
+    splunk_query = CGI::escape(
+      "search earliest=#{(opened- 5*60).strftime SPLUNK_TIMEFMT}" +
+      " latest=#{(opened+ 5*60).strftime SPLUNK_TIMEFMT}")
+    row = [
+           i["service"]["name"],
+           %(=HYPERLINK("#{i["html_url"]}","#{i["id"]}")),
+           opened,
+           ((closed - opened) / 60).round,
+           %(=HYPERLINK("#{SPLUNK_SEARCH_URL + splunk_query}","10 minutes"))
+          ]
+
+    if i["trigger_summary_data"]
+      if i["trigger_summary_data"]["description"]
+        row << i["trigger_summary_data"]["description"]
+      else
+        row << i["trigger_summary_data"]["subject"]
+      end
+    else
+      row << i["incident_key"]
+    end
+
+    if i["number_of_escalations"].to_i > 0
+      row_style = highlight_row_style
+    else
+      row_style = normal_row_style
+    end
+
+    notes = []
+    OffCall::PagerDuty.log_entries(i["id"]).each do |l|
+      if l.has_key? "channel" and l["channel"]["type"] == "note" then
+        notes << "• #{l['agent']['name']}: #{l['channel']['summary']}"
+      end
+    end
+
+    row_data.push(row + [notes.join("\n"), "", ""])
+    row_styling.push(row_style)
+  end
+
+  # Get Heroku status events
+  status_uri = "https://status.heroku.com/api/v3/issues"
+  status_options = since.strftime("?since=%Y-%m-%d")
+  url =  "#{status_uri}#{status_options}"
+  buffer = open(url).read
+  status = JSON.parse(buffer)
+  puts "Found #{status.length} matching status."
+
+  status.each do |s|
+    opened = Time.parse(s["created_at"])
+    closed = Time.parse(s["updated_at"])
+    title = s["title"]
+
+    row = [
+           "Heroku Status",
+           %(=HYPERLINK("#{s["full_url"]}","#{s["id"]}")),
+           opened,
+           ((closed - opened) / 60).round,
+           "",
+           s["title"]
+          ]
+
+    row_data.push(row + ["", "", ""])
+    row_styling.push(highlight_row_style)
+  end
+
+  row_styling, row_data = row_styling.zip(row_data).sort_by do |e| 
+    e[1][2]
+  end .transpose
+
+  row_data.zip row_styling do |i|
+    sheet.add_row i[0], :style => i[1]
+  end
+
+  widths = [5.times.map { 9 }, 35, 22, 22, 10].flatten
+  sheet.column_widths *widths
+
+  # Freeze the header row
+  sheet.sheet_view.pane do |pane|
+    pane.top_left_cell = "B1"
+    pane.state = :frozen
+    pane.y_split = 1
+    pane.active_pane = :bottom_right
+  end
+
+  # Numbers interop
+  p.use_shared_strings = true
+  p.serialize("incidents.xls")
+end
